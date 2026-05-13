@@ -1,0 +1,25 @@
+{
+  "name": "smart-welcome-bot",
+  "version": "1.0.0",
+  "description": "Discord smart onboarding & matching bot",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "deploy-commands": "ts-node src/commands/deploy.ts"
+  },
+  "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7",
+    "pg": "^8.20.0",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/pg": "^8.20.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
