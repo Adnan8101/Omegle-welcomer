@@ -2,12 +2,13 @@
   "name": "smart-welcome-bot",
   "version": "1.0.0",
   "description": "Discord smart onboarding & matching bot",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node --esm src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "deploy-commands": "ts-node src/commands/deploy.ts"
+    "deploy-commands": "ts-node --esm src/commands/deploy.ts"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
