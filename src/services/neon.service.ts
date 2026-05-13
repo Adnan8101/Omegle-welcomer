@@ -21,7 +21,9 @@ export async function initializeDatabase(): Promise<void> {
     // Create users table
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(255) PRIMARY KEY
+        id VARCHAR(255) PRIMARY KEY,
+        username VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
       )
     `);
 

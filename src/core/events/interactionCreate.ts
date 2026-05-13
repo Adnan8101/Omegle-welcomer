@@ -41,7 +41,7 @@ export async function execute(interaction: Interaction): Promise<void> {
     } else if (interaction.isAutocomplete()) {
       const { commandName, options } = interaction;
       if (commandName === 'welcome') {
-        const { getPanelAutocomplete } = await import('../../commands/welcome/welcome.command');
+        const { getPanelAutocomplete } = await import('../../commands/welcome/welcome.command.js');
         const partial = options.getFocused(true).value as string;
         const suggestions = await getPanelAutocomplete(interaction.guildId!, partial);
         await interaction.respond(
