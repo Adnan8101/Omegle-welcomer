@@ -10,9 +10,9 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { getOne, getMany, query } from '../../services/neon.service';
-import { startWelcomePanelCreation } from '../../modules/welcome/setup-flow';
-import { logger } from '../../utils/logger';
+import { getOne, getMany, query } from '../../services/neon.service.js';
+import { startWelcomePanelCreation } from '../../modules/welcome/setup-flow.js';
+import { logger } from '../../utils/logger.js';
 
 export const definition = new SlashCommandBuilder()
   .setName('welcome')

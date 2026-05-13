@@ -1,10 +1,10 @@
 import { Events, Interaction, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
-import { handleSetupCommand } from '../../commands/setup/setup.command';
-import { handleConfigCommand } from '../../commands/config/config.command';
-import { handleTestWelcomeCommand } from '../../commands/testing/test-welcome.command';
-import { handleWelcomeCommand } from '../../commands/welcome/welcome.command';
-import { handleWelcomeButton, handleWelcomeModal } from '../handlers/welcome-interactions';
-import { logger } from '../../utils/logger';
+import { handleSetupCommand } from '../../commands/setup/setup.command.js';
+import { handleConfigCommand } from '../../commands/config/config.command.js';
+import { handleTestWelcomeCommand } from '../../commands/testing/test-welcome.command.js';
+import { handleWelcomeCommand } from '../../commands/welcome/welcome.command.js';
+import { handleWelcomeButton, handleWelcomeModal } from '../handlers/welcome-interactions.js';
+import { logger } from '../../utils/logger.js';
 
 export const name = Events.InteractionCreate;
 

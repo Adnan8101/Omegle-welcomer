@@ -4,11 +4,11 @@ import {
   Partials,
   Collection,
 } from 'discord.js';
-import { config } from '../config';
-import { logger } from '../utils/logger';
-import * as readyEvent from './events/ready';
-import * as guildMemberAddEvent from './events/guildMemberAdd';
-import * as interactionCreateEvent from './events/interactionCreate';
+import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
+import * as readyEvent from './events/ready.js';
+import * as guildMemberAddEvent from './events/guildMemberAdd.js';
+import * as interactionCreateEvent from './events/interactionCreate.js';
 
 // Extend Client type for commands collection (future use)
 declare module 'discord.js' {

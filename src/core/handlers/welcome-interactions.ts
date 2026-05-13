@@ -9,7 +9,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { getOne, query } from '../../services/neon.service';
+import { getOne, query } from '../../services/neon.service.js';
 import {
   handleSimpleSelection,
   handleCustomizedSelection,
@@ -21,10 +21,10 @@ import {
   handleChannelSetup,
   handlePanelConfirmation,
   handlePanelCancellation,
-} from '../../modules/welcome/setup-flow';
-import { replaceVariables, validateMessage } from '../../utils/variables';
-import { validateWelcomeMessageSecurity } from '../../utils/security';
-import { logger } from '../../utils/logger';
+} from '../../modules/welcome/setup-flow.js';
+import { replaceVariables, validateMessage } from '../../utils/variables.js';
+import { validateWelcomeMessageSecurity } from '../../utils/security.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Route button interactions

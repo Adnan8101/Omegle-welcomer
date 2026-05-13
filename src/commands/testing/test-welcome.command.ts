@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, PermissionFlagsBits, SlashCommandBuilder, TextChannel } from 'discord.js';
-import { getOne } from '../../services/neon.service';
-import { replaceVariables } from '../../utils/variables';
+import { getOne } from '../../services/neon.service.js';
+import { replaceVariables } from '../../utils/variables.js';
 
 export const definition = new SlashCommandBuilder()
   .setName('test-welcome')

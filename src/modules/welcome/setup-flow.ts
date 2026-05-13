@@ -11,10 +11,10 @@ import {
   ButtonStyle,
   TextChannel,
 } from 'discord.js';
-import { getOne, getMany, query } from '../../services/neon.service';
-import { getAvailableVariables, replaceVariables, validateMessage } from '../../utils/variables';
-import { validateWelcomeMessageSecurity } from '../../utils/security';
-import { logger } from '../../utils/logger';
+import { getOne, getMany, query } from '../../services/neon.service.js';
+import { getAvailableVariables, replaceVariables, validateMessage } from '../../utils/variables.js';
+import { validateWelcomeMessageSecurity } from '../../utils/security.js';
+import { logger } from '../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

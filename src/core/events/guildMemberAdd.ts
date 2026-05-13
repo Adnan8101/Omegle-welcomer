@@ -1,7 +1,7 @@
 import { Events, GuildMember, TextChannel } from 'discord.js';
-import { getOne, query } from '../../services/neon.service';
-import { replaceVariables } from '../../utils/variables';
-import { logger } from '../../utils/logger';
+import { getOne, query } from '../../services/neon.service.js';
+import { replaceVariables } from '../../utils/variables.js';
+import { logger } from '../../utils/logger.js';
 
 export const name = Events.GuildMemberAdd;
 

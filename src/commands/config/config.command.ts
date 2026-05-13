@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { getOne, query } from '../../services/neon.service';
+import { getOne, query } from '../../services/neon.service.js';
 
 export const definition = new SlashCommandBuilder()
   .setName('config')

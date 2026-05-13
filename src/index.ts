@@ -1,9 +1,9 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { initializeDatabase, closeDatabase } from './services/neon.service';
-import { startBot } from './core/bot';
-import { logger } from './utils/logger';
+import { initializeDatabase, closeDatabase } from './services/neon.service.js';
+import { startBot } from './core/bot.js';
+import { logger } from './utils/logger.js';
 
 async function main(): Promise<void> {
   logger.info('🚀 Starting Smart Welcome Bot...');

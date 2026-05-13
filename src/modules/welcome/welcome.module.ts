@@ -1,7 +1,7 @@
 import { Guild, GuildMember, TextChannel } from 'discord.js';
-import { GuildConfig } from '../../utils/types';
-import { getTemplate, buildVars, renderTemplate } from '../templates/template.module';
-import { logger } from '../../utils/logger';
+import { GuildConfig } from '../../utils/types.js';
+import { getTemplate, buildVars, renderTemplate } from '../templates/template.module.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Simple welcome function - sends a basic welcome embed
