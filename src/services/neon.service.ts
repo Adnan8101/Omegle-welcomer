@@ -1,8 +1,15 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
+// Validate DATABASE_URL exists
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
+  ssl: { rejectUnauthorized: false }, // Required for Neon
 });
 
 /**

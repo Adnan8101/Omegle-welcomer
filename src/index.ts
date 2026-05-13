@@ -1,5 +1,9 @@
+import * as path from 'path';
 import * as dotenv from 'dotenv';
-dotenv.config();
+
+// Load .env from project root
+const envPath = path.resolve(process.cwd(), '.env');
+dotenv.config({ path: envPath });
 
 import { initializeDatabase, closeDatabase } from './services/neon.service.js';
 import { startBot } from './core/bot.js';

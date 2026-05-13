@@ -12,6 +12,15 @@ MAIN_FILE="dist/index.js"
 
 echo -e "${YELLOW}Starting Omeglee Welcomer deployment...${NC}"
 
+# Load environment variables from .env
+if [ -f .env ]; then
+  export $(cat .env | grep -v '^#' | xargs)
+  echo -e "${GREEN}✓ Loaded environment variables from .env${NC}"
+else
+  echo -e "${RED}Error: .env file not found!${NC}"
+  exit 1
+fi
+
 # Check if pm2 is installed
 if ! command -v pm2 &> /dev/null; then
     echo -e "${YELLOW}pm2 not found. Installing globally...${NC}"
@@ -36,10 +45,13 @@ echo -e "${GREEN}Build successful!${NC}"
 # Check if process already exists
 if pm2 describe "$APP_NAME" > /dev/null 2>&1; then
     echo -e "${YELLOW}Process '$APP_NAME' already exists. Restarting...${NC}"
-    pm2 restart "$APP_NAME"
+    pm2 restart "$APP_NAME" --update-env
 else
     echo -e "${YELLOW}Process '$APP_NAME' does not exist. Creating new process...${NC}"
-    pm2 start "$MAIN_FILE" --name "$APP_NAME"
+    pm2 start "$MAIN_FILE" --name "$APP_NAME" \
+      --env DISCORD_TOKEN="$DISCORD_TOKEN" \
+      --env CLIENT_ID="$CLIENT_ID" \
+      --env DATABASE_URL="$DATABASE_URL"
 fi
 
 # Save PM2 configuration
