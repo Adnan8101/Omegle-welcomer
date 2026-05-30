@@ -10,6 +10,14 @@ export const definition = new SlashCommandBuilder()
     opt.setName('user').setDescription('The user to test welcoming for').setRequired(true)
   );
 
+function ensureUserMention(message: string, memberId: string): string {
+  const mention = `<@${memberId}>`;
+  if (message.includes(mention)) {
+    return message;
+  }
+  return `${mention} ${message}`.trim();
+}
+
 export async function handleTestWelcomeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
   await interaction.deferReply({ ephemeral: true });
@@ -69,7 +77,7 @@ export async function handleTestWelcomeCommand(interaction: ChatInputCommandInte
       }
 
       // Replace variables and send plain text; respect auto-delete if configured
-      const message = replaceVariables(panel.message, { guild, member });
+      const message = ensureUserMention(replaceVariables(panel.message, { guild, member }), member.id);
       const sent = await channel.send({ content: message });
       if (panel.auto_delete_ms && typeof panel.auto_delete_ms === 'number') {
         setTimeout(() => sent.delete().catch(() => undefined), panel.auto_delete_ms);

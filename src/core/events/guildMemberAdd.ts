@@ -1,9 +1,17 @@
 import { Events, GuildMember, TextChannel } from 'discord.js';
-import { getOne, query } from '../../services/neon.service.js';
+import { getMany, getOne, query } from '../../services/neon.service.js';
 import { replaceVariables } from '../../utils/variables.js';
 import { logger } from '../../utils/logger.js';
 
 export const name = Events.GuildMemberAdd;
+
+function ensureUserMention(message: string, memberId: string): string {
+  const mention = `<@${memberId}>`;
+  if (message.includes(mention)) {
+    return message;
+  }
+  return `${mention} ${message}`.trim();
+}
 
 export async function execute(member: GuildMember): Promise<void> {
   try {
@@ -47,45 +55,47 @@ export async function execute(member: GuildMember): Promise<void> {
       return;
     }
 
-    // Get any enabled welcome panel (use the first one found)
-    const panel = await getOne(
-      `SELECT * FROM welcome_panels WHERE guild_id = $1 AND enabled = true ORDER BY created_at ASC LIMIT 1`,
+    // Get all enabled welcome panels
+    const panels = await getMany(
+      `SELECT * FROM welcome_panels WHERE guild_id = $1 AND enabled = true ORDER BY created_at ASC`,
       [guild.id]
     );
 
-    if (!panel) {
-      logger.info(`[guildMemberAdd] ⚠️ No enabled welcome panel found for guild ${guild.id} (${guild.name})`);
+    if (panels.length === 0) {
+      logger.info(`[guildMemberAdd] ⚠️ No enabled welcome panels found for guild ${guild.id} (${guild.name})`);
       logger.debug(`[guildMemberAdd] Please set up a welcome panel using /welcome create command`);
       return;
     }
 
-    logger.info(`[guildMemberAdd] Found panel: "${panel.panel_name}" for guild ${guild.name}`);
+    for (const panel of panels) {
+      let channel = guild.channels.cache.get(panel.welcome_channel) as TextChannel | null | undefined;
+      if (!channel) {
+        const fetched = await guild.channels.fetch(panel.welcome_channel).catch(() => null);
+        channel = fetched as TextChannel | null | undefined;
+      }
 
-    // Get the welcome channel
-    const channel = guild.channels.cache.get(panel.welcome_channel) as TextChannel | undefined;
-    if (!channel) {
-      logger.error(`[guildMemberAdd] Welcome channel ${panel.welcome_channel} not found for guild ${guild.id}`);
-      return;
-    }
-    if (!channel.isTextBased()) {
-      logger.error(`[guildMemberAdd] Channel ${panel.welcome_channel} is not a text channel`);
-      return;
-    }
+      if (!channel?.isTextBased()) {
+        logger.error(
+          `[guildMemberAdd] Welcome channel ${panel.welcome_channel} not found or not text-based for guild ${guild.id}`
+        );
+        continue;
+      }
 
-    logger.debug(`[guildMemberAdd] Sending welcome to channel: ${channel.name}`);
+      logger.debug(`[guildMemberAdd] Sending welcome to channel: ${channel.name}`);
 
-    // Replace variables in the message
-    const message = replaceVariables(panel.message, { guild, member });
+      // Replace variables in the message and ensure the user is pinged
+      const message = ensureUserMention(replaceVariables(panel.message, { guild, member }), member.id);
 
-    // Send plain text welcome message
-    const sentMessage = await channel.send({ content: message });
-    logger.info(`[guildMemberAdd] ✅ Welcomed ${member.user.tag} in ${guild.name}`);
+      // Send plain text welcome message
+      const sentMessage = await channel.send({ content: message });
+      logger.info(`[guildMemberAdd] ✅ Welcomed ${member.user.tag} in ${guild.name}`);
 
-    // Auto-delete if configured
-    if (panel.auto_delete_ms) {
-      setTimeout(() => {
-        sentMessage.delete().catch(() => undefined);
-      }, panel.auto_delete_ms);
+      // Auto-delete if configured
+      if (panel.auto_delete_ms) {
+        setTimeout(() => {
+          sentMessage.delete().catch(() => undefined);
+        }, panel.auto_delete_ms);
+      }
     }
   } catch (err) {
     logger.error('[guildMemberAdd] Unhandled error:', err);
