@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, PermissionFlagsBits, SlashCommandBuilder, TextChannel } from 'discord.js';
-import { getOne } from '../../services/neon.service.js';
+import { getMany, getOne } from '../../services/neon.service.js';
 import { replaceVariables } from '../../utils/variables.js';
 
 export const definition = new SlashCommandBuilder()
@@ -38,31 +38,68 @@ export async function handleTestWelcomeCommand(interaction: ChatInputCommandInte
       await interaction.editReply('⚠️ **Warning:** The welcoming system is currently disabled. Run `/setup enable` to enable it.');
     }
 
-    // Get first enabled panel
-    const panel = await getOne(
-      `SELECT * FROM welcome_panels WHERE guild_id = $1 AND enabled = true LIMIT 1`,
+    // Get all enabled panels
+    const panels = await getMany(
+      `SELECT * FROM welcome_panels WHERE guild_id = $1 AND enabled = true ORDER BY created_at ASC`,
       [guildId]
     );
 
-    if (!panel) {
-      await interaction.editReply('❌ No enabled welcome panel found. Create one with `/welcome create`.');
+    if (panels.length === 0) {
+      await interaction.editReply('❌ No enabled welcome panels found. Create one with `/welcome create`.');
       return;
     }
 
-    // Get channel
-    const channel = guild.channels.cache.get(panel.welcome_channel) as TextChannel | undefined;
-    if (!channel?.isTextBased()) {
-      await interaction.editReply('❌ Welcome channel not found or not text-based.');
-      return;
+    const sentPanels: Array<{ name: string; channel: string }> = [];
+    const failedPanels: Array<{ name: string; channel: string; reason: string }> = [];
+
+    for (const panel of panels) {
+      let channel = guild.channels.cache.get(panel.welcome_channel) as TextChannel | null | undefined;
+      if (!channel) {
+        const fetched = await guild.channels.fetch(panel.welcome_channel).catch(() => null);
+        channel = fetched as TextChannel | null | undefined;
+      }
+
+      if (!channel?.isTextBased()) {
+        failedPanels.push({
+          name: panel.panel_name,
+          channel: panel.welcome_channel,
+          reason: 'Channel not found or not text-based',
+        });
+        continue;
+      }
+
+      // Replace variables and send plain text; respect auto-delete if configured
+      const message = replaceVariables(panel.message, { guild, member });
+      const sent = await channel.send({ content: message });
+      if (panel.auto_delete_ms && typeof panel.auto_delete_ms === 'number') {
+        setTimeout(() => sent.delete().catch(() => undefined), panel.auto_delete_ms);
+      }
+      sentPanels.push({ name: panel.panel_name, channel: panel.welcome_channel });
     }
 
-    // Replace variables and send plain text; respect auto-delete if configured
-    const message = replaceVariables(panel.message, { guild, member });
-    const sent = await channel.send({ content: message });
-    if (panel.auto_delete_ms && typeof panel.auto_delete_ms === 'number') {
-      setTimeout(() => sent.delete().catch(() => undefined), panel.auto_delete_ms);
+    const replyLines: string[] = [];
+    replyLines.push(`✅ Sent ${sentPanels.length} test welcome${sentPanels.length === 1 ? '' : 's'}.`);
+
+    if (sentPanels.length > 0) {
+      replyLines.push(
+        sentPanels
+          .map((panel) => `• ${panel.name} → <#${panel.channel}>`)
+          .join('\n')
+      );
     }
-    await interaction.editReply(`✅ Test welcome sent to <#${panel.welcome_channel}>`);
+
+    if (failedPanels.length > 0) {
+      replyLines.push(
+        `⚠️ Skipped ${failedPanels.length} panel${failedPanels.length === 1 ? '' : 's'}:`
+      );
+      replyLines.push(
+        failedPanels
+          .map((panel) => `• ${panel.name} → <#${panel.channel}> (${panel.reason})`)
+          .join('\n')
+      );
+    }
+
+    await interaction.editReply(replyLines.join('\n'));
 
   } catch (err) {
     await interaction.editReply(`❌ **Error fetching member:** Make sure the user is actually in the server.\n\`\`\`${err}\`\`\``);
