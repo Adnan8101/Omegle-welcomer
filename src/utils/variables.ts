@@ -6,10 +6,18 @@ export interface VariableContext {
 }
 
 const AVAILABLE_VARIABLES = {
-  server_name: 'The name of the server',
-  user: 'The username of the user joining',
-  user_mention: 'Mention the user who joined',
-  mem_count: 'The total number of members in the server',
+  user: 'The user tag of the user (e.g. User#1234)',
+  username: 'The username of the user',
+  usermention: 'Mention the user',
+  userid: 'The Discord ID of the user',
+  usericon: 'The avatar URL of the user',
+  server: 'The name of the server',
+  membercount: 'The total number of members in the server',
+  createdat: 'The account creation date of the user',
+  // Backward compatibility
+  server_name: 'The name of the server (legacy)',
+  user_mention: 'Mention the user who joined (legacy)',
+  mem_count: 'The total number of members in the server (legacy)',
 };
 
 /**
@@ -23,11 +31,29 @@ export function getAvailableVariables(): Record<string, string> {
  * Replace all variables in a message with actual values
  */
 export function replaceVariables(message: string, context: VariableContext): string {
-  return message
-    .replace(/\{\{server_name\}\}/g, context.guild.name)
-    .replace(/\{\{user\}\}/g, context.member.user.username)
-    .replace(/\{\{user_mention\}\}/g, `<@${context.member.id}>`)
-    .replace(/\{\{mem_count\}\}/g, context.guild.memberCount.toString());
+  if (!message) return '';
+  const vars: Record<string, string> = {
+    user: context.member.user.tag,
+    username: context.member.user.username,
+    usermention: `<@${context.member.id}>`,
+    userid: context.member.id,
+    usericon: context.member.user.displayAvatarURL({ forceStatic: false }) || '',
+    server: context.guild.name,
+    membercount: context.guild.memberCount.toString(),
+    createdat: context.member.user.createdAt.toDateString(),
+    // Backward compatibility
+    server_name: context.guild.name,
+    user_mention: `<@${context.member.id}>`,
+    mem_count: context.guild.memberCount.toString(),
+  };
+
+  let rendered = message;
+  for (const [key, val] of Object.entries(vars)) {
+    // Escape regex characters just in case, though key contains only safe chars
+    rendered = rendered.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
+    rendered = rendered.replace(new RegExp(`\\{${key}\\}`, 'g'), val);
+  }
+  return rendered;
 }
 
 /**
@@ -41,7 +67,8 @@ export function getPreview(message: string, context: VariableContext): string {
  * Validate if a message contains only valid variables
  */
 export function validateMessage(message: string): { valid: boolean; invalidVars?: string[] } {
-  const variablePattern = /\{\{([^}]+)\}\}/g;
+  // Regex to match both {{var}} and {var}
+  const variablePattern = /\{+([a-zA-Z0-9_]+)\}+/g;
   const matches = message.matchAll(variablePattern);
   
   const invalidVars: string[] = [];

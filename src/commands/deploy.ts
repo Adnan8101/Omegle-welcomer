@@ -7,6 +7,7 @@ import { definition as setupDef } from './setup/setup.command.js';
 import { definition as configDef } from './config/config.command.js';
 import { definition as testWelcomeDef } from './testing/test-welcome.command.js';
 import { definition as welcomeDef } from './welcome/welcome.command.js';
+import { definition as embedDef } from './embed/embed.command.js';
 import { logger } from '../utils/logger.js';
 
 const commands = [
@@ -14,6 +15,7 @@ const commands = [
   configDef,
   testWelcomeDef,
   welcomeDef,
+  embedDef,
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(config.discord.token);

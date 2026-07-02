@@ -365,14 +365,144 @@ export async function handleChannelModalSubmit(interaction: ModalSubmitInteracti
   // Store channel in session
   await query(
     `UPDATE setup_sessions SET welcome_channel = $1, step = $2 WHERE id = $3`,
-    [channelId, 'confirm', sessionId]
+    [channelId, 'embed_link', sessionId]
   );
 
-  // Show confirmation
+  // Show embed link options
+  await showEmbedLinkSelection(interaction, sessionId);
+}
+
+/**
+ * Show embed linking selection
+ */
+export async function showEmbedLinkSelection(
+  interaction: ModalSubmitInteraction | ButtonInteraction | any,
+  sessionId: string
+): Promise<void> {
+  // Fetch all custom embeds in this guild
+  const embeds = await getMany(
+    `SELECT * FROM embeds WHERE guild_id = $1 ORDER BY name ASC`,
+    [interaction.guildId!]
+  );
+
+  const embedLinkEmbed = new EmbedBuilder()
+    .setTitle('Link Custom Embed')
+    .setColor(0x5865f2);
+
+  if (embeds.length === 0) {
+    embedLinkEmbed.setDescription(
+      '⚠️ You do not have any custom embeds configured. Would you like to proceed without linking an embed?\n\n*(You can create custom embeds using `/embed create` and link them to panels later).*'
+    );
+
+    const proceedBtn = new ButtonBuilder()
+      .setCustomId(`welcome_embed_skip_${sessionId}`)
+      .setLabel('Proceed to Confirmation')
+      .setStyle(ButtonStyle.Primary);
+
+    const cancelBtn = new ButtonBuilder()
+      .setCustomId(`welcome_cancel_${sessionId}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(proceedBtn, cancelBtn);
+
+    if (interaction instanceof ModalSubmitInteraction) {
+      await interaction.reply({
+        embeds: [embedLinkEmbed],
+        components: [row],
+        ephemeral: true,
+      });
+    } else {
+      await interaction.update({
+        embeds: [embedLinkEmbed],
+        components: [row],
+      });
+    }
+  } else {
+    const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = await import('discord.js');
+
+    embedLinkEmbed.setDescription(
+      'Select a custom embed from the dropdown menu to link to this welcome message, or click **Skip** to send only the text message.'
+    );
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`welcome_embed_select_${sessionId}`)
+      .setPlaceholder('Choose a custom embed...');
+
+    select.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('None / No Embed')
+        .setDescription('Do not attach an embed to this welcome panel.')
+        .setValue('none')
+    );
+
+    for (const embed of embeds) {
+      const desc = embed.description ? embed.description.slice(0, 80) : 'No description';
+      select.addOptions(
+        new StringSelectMenuOptionBuilder()
+          .setLabel(embed.name)
+          .setDescription(desc)
+          .setValue(embed.id)
+      );
+    }
+
+    const selectRow = new ActionRowBuilder<any>().addComponents(select);
+
+    const skipBtn = new ButtonBuilder()
+      .setCustomId(`welcome_embed_skip_${sessionId}`)
+      .setLabel('Skip / No Embed')
+      .setStyle(ButtonStyle.Secondary);
+
+    const cancelBtn = new ButtonBuilder()
+      .setCustomId(`welcome_cancel_${sessionId}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger);
+
+    const btnRow = new ActionRowBuilder<ButtonBuilder>().addComponents(skipBtn, cancelBtn);
+
+    if (interaction instanceof ModalSubmitInteraction) {
+      await interaction.reply({
+        embeds: [embedLinkEmbed],
+        components: [selectRow, btnRow],
+        ephemeral: true,
+      });
+    } else {
+      await interaction.update({
+        embeds: [embedLinkEmbed],
+        components: [selectRow, btnRow],
+      });
+    }
+  }
+}
+
+/**
+ * Show confirmation screen
+ */
+export async function showPanelConfirmationScreen(
+  interaction: any,
+  sessionId: string
+): Promise<void> {
+  const session = await getOne(
+    `SELECT * FROM setup_sessions WHERE id = $1`,
+    [sessionId]
+  );
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  let embedName = 'None';
+  if (session.embed_id) {
+    const embedData = await getOne(`SELECT name FROM embeds WHERE id = $1`, [session.embed_id]);
+    if (embedData) {
+      embedName = embedData.name;
+    }
+  }
+
   const confirmEmbed = new EmbedBuilder()
     .setTitle('Confirm Panel Setup')
     .setDescription(
-      `**Message:** ${session.message}\n\n**Channel:** <#${channelId}>\n\n**Auto-delete:** ${session.auto_delete_ms ? `${session.auto_delete_ms}ms` : 'Disabled'}`
+      `**Message:** ${session.message}\n\n**Channel:** <#${session.welcome_channel}>\n\n**Auto-delete:** ${session.auto_delete_ms ? `${session.auto_delete_ms}ms` : 'Disabled'}\n\n**Attached Embed:** ${embedName}`
     )
     .setColor(0x5865f2);
 
@@ -388,12 +518,12 @@ export async function handleChannelModalSubmit(interaction: ModalSubmitInteracti
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmBtn, cancelBtn);
 
-  await interaction.reply({
+  await interaction.update({
     embeds: [confirmEmbed],
     components: [row],
-    ephemeral: true,
   });
 }
+
 /**
  * Handle confirmation and create the panel
  */
@@ -418,12 +548,20 @@ export async function handlePanelConfirmation(interaction: ButtonInteraction, se
   const panelName = `panel-${panelCount + 1}`;
   const panelId = uuidv4();
 
-  // Create the panel
+  // Create the panel with optional embed_id
   await query(
-    `INSERT INTO welcome_panels (id, guild_id, panel_name, message, welcome_channel, auto_delete_ms) 
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [panelId, interaction.guildId!, panelName, session.message, session.welcome_channel, session.auto_delete_ms]
+    `INSERT INTO welcome_panels (id, guild_id, panel_name, message, welcome_channel, auto_delete_ms, embed_id) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [panelId, interaction.guildId!, panelName, session.message, session.welcome_channel, session.auto_delete_ms, session.embed_id]
   );
+
+  let embedName = 'None';
+  if (session.embed_id) {
+    const embedData = await getOne(`SELECT name FROM embeds WHERE id = $1`, [session.embed_id]);
+    if (embedData) {
+      embedName = embedData.name;
+    }
+  }
 
   // Clean up session
   await query(`DELETE FROM setup_sessions WHERE id = $1`, [sessionId]);
@@ -432,7 +570,7 @@ export async function handlePanelConfirmation(interaction: ButtonInteraction, se
   try {
     const channel = (await interaction.client.channels.fetch(session.welcome_channel)) as TextChannel | null;
     if (channel && channel.isTextBased()) {
-      const content = `✅ Welcome panel **${panelName}** created successfully!\n\nMessage: ${session.message.slice(0, 1900)}\n\nChannel: <#${session.welcome_channel}>\nAuto-delete: ${session.auto_delete_ms ? `${session.auto_delete_ms}ms` : 'Disabled'}`;
+      const content = `✅ Welcome panel **${panelName}** created successfully!\n\nMessage: ${session.message.slice(0, 1500)}\n\nChannel: <#${session.welcome_channel}>\nAuto-delete: ${session.auto_delete_ms ? `${session.auto_delete_ms}ms` : 'Disabled'}\nAttached Embed: ${embedName}`;
       const sent = await channel.send({ content });
       if (session.auto_delete_ms && typeof session.auto_delete_ms === 'number') {
         setTimeout(() => sent.delete().catch(() => undefined), session.auto_delete_ms);

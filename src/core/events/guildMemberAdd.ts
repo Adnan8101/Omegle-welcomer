@@ -86,8 +86,23 @@ export async function execute(member: GuildMember): Promise<void> {
       // Replace variables in the message and ensure the user is pinged
       const message = ensureUserMention(replaceVariables(panel.message, { guild, member }), member.id);
 
-      // Send plain text welcome message
-      const sentMessage = await channel.send({ content: message });
+      // Fetch and render attached embed if configured
+      let renderedEmbed: any = undefined;
+      if (panel.embed_id) {
+        const embedData = await getOne(`SELECT * FROM embeds WHERE id = $1`, [panel.embed_id]);
+        if (embedData) {
+          const { renderEmbed } = await import('../../utils/embedEngine.js');
+          renderedEmbed = renderEmbed(embedData, { guild, member });
+        }
+      }
+
+      const sendOptions: any = { content: message };
+      if (renderedEmbed) {
+        sendOptions.embeds = [renderedEmbed];
+      }
+
+      // Send welcome message
+      const sentMessage = await channel.send(sendOptions);
       logger.info(`[guildMemberAdd] ✅ Welcomed ${member.user.tag} in ${guild.name}`);
 
       // Auto-delete if configured

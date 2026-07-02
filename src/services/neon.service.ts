@@ -38,6 +38,30 @@ export async function initializeDatabase(): Promise<void> {
       )
     `);
 
+    // Create embeds table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS embeds (
+        id VARCHAR(36) PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        title TEXT,
+        description TEXT,
+        color VARCHAR(50),
+        thumbnail TEXT,
+        image TEXT,
+        author_name TEXT,
+        author_icon TEXT,
+        author_url TEXT,
+        footer_text TEXT,
+        footer_icon TEXT,
+        timestamp_enabled BOOLEAN DEFAULT false,
+        created_by VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(guild_id, name)
+      )
+    `);
+
     // Create welcome_panels table
     await client.query(`
       CREATE TABLE IF NOT EXISTS welcome_panels (
@@ -54,6 +78,18 @@ export async function initializeDatabase(): Promise<void> {
       )
     `);
 
+    // Add embed_id column to welcome_panels if it doesn't exist
+    await client.query(`
+      ALTER TABLE welcome_panels 
+      ADD COLUMN IF NOT EXISTS embed_id VARCHAR(36) REFERENCES embeds(id) ON DELETE SET NULL
+    `);
+
+    // Add embed_id column to setup_sessions if it doesn't exist
+    await client.query(`
+      ALTER TABLE setup_sessions 
+      ADD COLUMN IF NOT EXISTS embed_id VARCHAR(36)
+    `);
+
     // Create setup_sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS setup_sessions (
@@ -64,6 +100,31 @@ export async function initializeDatabase(): Promise<void> {
         message TEXT,
         auto_delete_ms INTEGER,
         welcome_channel VARCHAR(255),
+        embed_id VARCHAR(36),
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
+    // Create embed_setup_sessions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS embed_setup_sessions (
+        id VARCHAR(36) PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        embed_id VARCHAR(36) REFERENCES embeds(id) ON DELETE SET NULL,
+        name VARCHAR(255) NOT NULL,
+        title TEXT,
+        description TEXT,
+        color VARCHAR(50),
+        thumbnail TEXT,
+        image TEXT,
+        author_name TEXT,
+        author_icon TEXT,
+        author_url TEXT,
+        footer_text TEXT,
+        footer_icon TEXT,
+        timestamp_enabled BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW(),
         expires_at TIMESTAMP NOT NULL
       )

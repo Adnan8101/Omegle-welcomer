@@ -232,8 +232,13 @@ async function handleEdit(interaction: ChatInputCommandInteraction): Promise<voi
     .setLabel('Auto Delete')
     .setStyle(ButtonStyle.Primary);
 
-  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(nameBtn, channelBtn);
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(messageBtn, autodeleteBtn);
+  const embedBtn = new ButtonBuilder()
+    .setCustomId(`welcome_edit_embed_${panel.id}`)
+    .setLabel('Link/Change Embed')
+    .setStyle(ButtonStyle.Primary);
+
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(nameBtn, channelBtn, messageBtn);
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(autodeleteBtn, embedBtn);
 
   await interaction.editReply({
     embeds: [editEmbed],

@@ -78,7 +78,23 @@ export async function handleTestWelcomeCommand(interaction: ChatInputCommandInte
 
       // Replace variables and send plain text; respect auto-delete if configured
       const message = ensureUserMention(replaceVariables(panel.message, { guild, member }), member.id);
-      const sent = await channel.send({ content: message });
+
+      // Fetch and render attached embed if configured
+      let renderedEmbed: any = undefined;
+      if (panel.embed_id) {
+        const embedData = await getOne(`SELECT * FROM embeds WHERE id = $1`, [panel.embed_id]);
+        if (embedData) {
+          const { renderEmbed } = await import('../../utils/embedEngine.js');
+          renderedEmbed = renderEmbed(embedData, { guild, member });
+        }
+      }
+
+      const sendOptions: any = { content: message };
+      if (renderedEmbed) {
+        sendOptions.embeds = [renderedEmbed];
+      }
+
+      const sent = await channel.send(sendOptions);
       if (panel.auto_delete_ms && typeof panel.auto_delete_ms === 'number') {
         setTimeout(() => sent.delete().catch(() => undefined), panel.auto_delete_ms);
       }
