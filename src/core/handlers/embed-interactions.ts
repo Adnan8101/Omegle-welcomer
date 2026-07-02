@@ -375,15 +375,45 @@ export async function handleEmbedButton(interaction: ButtonInteraction): Promise
       break;
     }
     case 'embed_edit_color_': {
-      await handleMessageBasedInput(interaction, session, 'Color', 'HEX color you want to use (e.g. #5865F2 or "clear" to remove)');
+      const modal = new ModalBuilder()
+        .setCustomId(`embed_modal_color_${sessionId}`)
+        .setTitle('Edit Color');
+      const colorInput = new TextInputBuilder()
+        .setCustomId('color')
+        .setLabel('HEX Color (e.g. #FFD700 or "clear")')
+        .setStyle(TextInputStyle.Short)
+        .setValue(session.color || '')
+        .setRequired(false);
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(colorInput));
+      await interaction.showModal(modal);
       break;
     }
     case 'embed_edit_thumbnail_': {
-      await handleMessageBasedInput(interaction, session, 'Thumbnail URL', 'Thumbnail image URL (or "clear" to remove)');
+      const modal = new ModalBuilder()
+        .setCustomId(`embed_modal_thumbnail_${sessionId}`)
+        .setTitle('Edit Thumbnail');
+      const thumbInput = new TextInputBuilder()
+        .setCustomId('thumbnail')
+        .setLabel('Thumbnail Image URL (or "clear")')
+        .setStyle(TextInputStyle.Short)
+        .setValue(session.thumbnail || '')
+        .setRequired(false);
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(thumbInput));
+      await interaction.showModal(modal);
       break;
     }
     case 'embed_edit_image_': {
-      await handleMessageBasedInput(interaction, session, 'Image URL', 'Image URL (or "clear" to remove)');
+      const modal = new ModalBuilder()
+        .setCustomId(`embed_modal_image_${sessionId}`)
+        .setTitle('Edit Image');
+      const imgInput = new TextInputBuilder()
+        .setCustomId('image')
+        .setLabel('Image URL (or "clear")')
+        .setStyle(TextInputStyle.Short)
+        .setValue(session.image || '')
+        .setRequired(false);
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(imgInput));
+      await interaction.showModal(modal);
       break;
     }
     case 'embed_edit_timestamp_': {
@@ -473,87 +503,6 @@ export async function handleEmbedButton(interaction: ButtonInteraction): Promise
 }
 
 /**
- * Handle Message-Based input flows (HEX colors, URLs)
- */
-async function handleMessageBasedInput(
-  interaction: ButtonInteraction,
-  session: any,
-  fieldName: string,
-  promptText: string
-): Promise<void> {
-  const sessionId = session.id;
-
-  // Ask for input
-  const promptMsg = await interaction.reply({
-    content: `💬 Send the ${promptText}.`,
-    ephemeral: false,
-  });
-
-  const filter = (m: Message) => m.author.id === interaction.user.id;
-  const collector = (interaction.channel as any)?.createMessageCollector({ filter, max: 1, time: 60000 });
-
-  collector?.on('collect', async (userMsg: Message) => {
-    const value = userMsg.content.trim();
-
-    // Check for clear/none/remove
-    const isClear = ['clear', 'none', 'remove'].includes(value.toLowerCase());
-    let dbValue: string | null = isClear ? null : value;
-    let isValid = true;
-    let errorMsg = '';
-
-    if (!isClear) {
-      if (fieldName === 'Color') {
-        if (!value.startsWith('#')) {
-          dbValue = '#' + value;
-        }
-        if (!isValidHexColor(dbValue!)) {
-          isValid = false;
-          errorMsg = '❌ Invalid HEX color format. Please use standard hexadecimal (e.g. #5865F2).';
-        }
-      } else {
-        // Validation for URL (Thumbnail URL, Image URL)
-        if (!isValidUrl(value)) {
-          isValid = false;
-          errorMsg = '❌ Invalid URL. Please provide a fully qualified image URL starting with http:// or https://.';
-        }
-      }
-    }
-
-    if (!isValid) {
-      // Send error and self delete
-      const err = await userMsg.reply({ content: errorMsg });
-      setTimeout(() => {
-        err.delete().catch(() => undefined);
-        userMsg.delete().catch(() => undefined);
-      }, 5000);
-      return;
-    }
-
-    // Save database
-    const dbField = fieldName === 'Color' ? 'color' : (fieldName === 'Thumbnail URL' ? 'thumbnail' : 'image');
-    await query(`UPDATE embed_setup_sessions SET ${dbField} = $1 WHERE id = $2`, [dbValue, sessionId]);
-
-    // Retrieve updated session
-    const updatedSession = await getOne(`SELECT * FROM embed_setup_sessions WHERE id = $1`, [sessionId]);
-
-    // Delete messages
-    await promptMsg.delete().catch(() => undefined);
-    await userMsg.delete().catch(() => undefined);
-
-    // Re-render preview on the main message
-    const preview = renderEmbed(updatedSession, { guild: interaction.guild!, member: interaction.member as GuildMember });
-    await interaction.message.edit({ embeds: [preview] }).catch(() => undefined);
-  });
-
-  collector?.on('end', async (collected: any, reason: string) => {
-    if (reason === 'time') {
-      await promptMsg.edit({ content: '⏱️ Session timed out waiting for message input.', components: [] });
-      setTimeout(() => promptMsg.delete().catch(() => undefined), 5000);
-    }
-  });
-}
-
-/**
  * Handle Modal Submissions
  */
 export async function handleEmbedModal(interaction: ModalSubmitInteraction): Promise<void> {
@@ -567,6 +516,9 @@ export async function handleEmbedModal(interaction: ModalSubmitInteraction): Pro
     'embed_modal_description_',
     'embed_modal_author_',
     'embed_modal_footer_',
+    'embed_modal_color_',
+    'embed_modal_thumbnail_',
+    'embed_modal_image_',
   ];
 
   const prefix = modalActions.find((a) => customId.startsWith(a));
@@ -595,6 +547,53 @@ export async function handleEmbedModal(interaction: ModalSubmitInteraction): Pro
     case 'embed_modal_description_': {
       const description = interaction.fields.getTextInputValue('description').trim() || null;
       await query(`UPDATE embed_setup_sessions SET description = $1 WHERE id = $2`, [description, sessionId]);
+      break;
+    }
+    case 'embed_modal_color_': {
+      const colorInput = interaction.fields.getTextInputValue('color').trim();
+      let color: string | null = colorInput || null;
+      if (color) {
+        if (['clear', 'none', 'remove'].includes(color.toLowerCase())) {
+          color = null;
+        } else {
+          if (!color.startsWith('#')) {
+            color = '#' + color;
+          }
+          if (!isValidHexColor(color)) {
+            await interaction.followUp({ content: '❌ Invalid HEX color format. (e.g. #FFD700)', ephemeral: true });
+            return;
+          }
+        }
+      }
+      await query(`UPDATE embed_setup_sessions SET color = $1 WHERE id = $2`, [color, sessionId]);
+      break;
+    }
+    case 'embed_modal_thumbnail_': {
+      const thumbnailInput = interaction.fields.getTextInputValue('thumbnail').trim();
+      let thumbnail: string | null = thumbnailInput || null;
+      if (thumbnail) {
+        if (['clear', 'none', 'remove'].includes(thumbnail.toLowerCase())) {
+          thumbnail = null;
+        } else if (!isValidUrl(thumbnail)) {
+          await interaction.followUp({ content: '❌ Invalid URL format.', ephemeral: true });
+          return;
+        }
+      }
+      await query(`UPDATE embed_setup_sessions SET thumbnail = $1 WHERE id = $2`, [thumbnail, sessionId]);
+      break;
+    }
+    case 'embed_modal_image_': {
+      const imageInput = interaction.fields.getTextInputValue('image').trim();
+      let image: string | null = imageInput || null;
+      if (image) {
+        if (['clear', 'none', 'remove'].includes(image.toLowerCase())) {
+          image = null;
+        } else if (!isValidUrl(image)) {
+          await interaction.followUp({ content: '❌ Invalid URL format.', ephemeral: true });
+          return;
+        }
+      }
+      await query(`UPDATE embed_setup_sessions SET image = $1 WHERE id = $2`, [image, sessionId]);
       break;
     }
     case 'embed_modal_author_': {

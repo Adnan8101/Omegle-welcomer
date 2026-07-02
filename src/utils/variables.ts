@@ -6,7 +6,7 @@ export interface VariableContext {
 }
 
 const AVAILABLE_VARIABLES = {
-  user: 'The user tag of the user (e.g. User#1234)',
+  user: 'The username of the user',
   username: 'The username of the user',
   usermention: 'Mention the user',
   userid: 'The Discord ID of the user',
@@ -33,7 +33,7 @@ export function getAvailableVariables(): Record<string, string> {
 export function replaceVariables(message: string, context: VariableContext): string {
   if (!message) return '';
   const vars: Record<string, string> = {
-    user: context.member.user.tag,
+    user: context.member.user.username,
     username: context.member.user.username,
     usermention: `<@${context.member.id}>`,
     userid: context.member.id,

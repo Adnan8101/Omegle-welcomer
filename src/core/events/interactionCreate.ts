@@ -4,6 +4,7 @@ import { handleConfigCommand } from '../../commands/config/config.command.js';
 import { handleTestWelcomeCommand } from '../../commands/testing/test-welcome.command.js';
 import { handleWelcomeCommand } from '../../commands/welcome/welcome.command.js';
 import { handleEmbedCommand } from '../../commands/embed/embed.command.js';
+import { handleVariablesCommand } from '../../commands/variables/variables.command.js';
 import { handleWelcomeButton, handleWelcomeModal } from '../handlers/welcome-interactions.js';
 import { handleEmbedButton, handleEmbedModal } from '../handlers/embed-interactions.js';
 import { logger } from '../../utils/logger.js';
@@ -16,6 +17,7 @@ const COMMAND_MAP: Record<string, (interaction: ChatInputCommandInteraction) => 
   'test-welcome': handleTestWelcomeCommand,
   welcome: handleWelcomeCommand,
   embed: handleEmbedCommand,
+  variables: handleVariablesCommand,
 };
 
 export async function execute(interaction: Interaction): Promise<void> {
