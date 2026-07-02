@@ -22,6 +22,12 @@ const rest = new REST({ version: '10' }).setToken(config.discord.token);
 
 (async () => {
   try {
+    logger.info('🧹 Clearing all existing global slash commands...');
+    await rest.put(Routes.applicationCommands(config.discord.clientId), {
+      body: [],
+    });
+    logger.info('✅ Successfully cleared all global slash commands.');
+
     logger.info(`🚀 Deploying ${commands.length} slash command(s) to Discord...`);
 
     // Deploy globally
