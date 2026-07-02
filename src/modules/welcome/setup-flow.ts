@@ -538,14 +538,28 @@ export async function handlePanelConfirmation(interaction: ButtonInteraction, se
     return;
   }
 
-  // Count existing panels to create a default name
+  // Find a unique default name that does not already exist
   const result = await getOne(
     `SELECT COUNT(*) as count FROM welcome_panels WHERE guild_id = $1`,
     [interaction.guildId!]
   );
   const panelCount = result?.count || 0;
 
-  const panelName = `panel-${panelCount + 1}`;
+  let panelName = '';
+  let counter = panelCount + 1;
+  let nameExists = true;
+  while (nameExists) {
+    panelName = `panel-${counter}`;
+    const check = await getOne(
+      `SELECT id FROM welcome_panels WHERE guild_id = $1 AND panel_name = $2`,
+      [interaction.guildId!, panelName]
+    );
+    if (!check) {
+      nameExists = false;
+    } else {
+      counter++;
+    }
+  }
   const panelId = uuidv4();
 
   // Create the panel with optional embed_id
