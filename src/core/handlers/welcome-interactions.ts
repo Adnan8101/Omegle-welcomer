@@ -14,6 +14,15 @@ import { getOne, getMany, query } from '../../services/neon.service.js';
 import {
   handleSimpleSelection,
   handleCustomizedSelection,
+  showCustomizedHub,
+  handleCustomizedMessage,
+  handleCustomizedMessageSubmit,
+  handleCustomizedEmbed,
+  handleCustomizedEmbedSelect,
+  handleCustomizedChannel,
+  handleCustomizedChannelSubmit,
+  handleCustomizedAutoDelete,
+  handleCustomizedAutoDeleteSubmit,
   handleMessageModalSubmit,
   handleTypeAgain,
   handleAutoDeleteSetup,
@@ -39,7 +48,8 @@ export async function handleWelcomeButton(interaction: ButtonInteraction): Promi
       const sessionId = customId.replace('welcome_simple_', '');
       await handleSimpleSelection(interaction, sessionId);
     } else if (customId.startsWith('welcome_customized_')) {
-      await handleCustomizedSelection(interaction);
+      const sessionId = customId.replace('welcome_customized_', '');
+      await handleCustomizedSelection(interaction, sessionId);
     } else if (customId.startsWith('welcome_type_again_')) {
       const sessionId = customId.replace('welcome_type_again_', '');
       await handleTypeAgain(interaction, sessionId);
@@ -55,6 +65,24 @@ export async function handleWelcomeButton(interaction: ButtonInteraction): Promi
     } else if (customId.startsWith('welcome_cancel_')) {
       const sessionId = customId.replace('welcome_cancel_', '');
       await handlePanelCancellation(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_message_')) {
+      const sessionId = customId.replace('welcome_cust_message_', '');
+      await handleCustomizedMessage(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_embed_')) {
+      const sessionId = customId.replace('welcome_cust_embed_', '');
+      await handleCustomizedEmbed(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_channel_')) {
+      const sessionId = customId.replace('welcome_cust_channel_', '');
+      await handleCustomizedChannel(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_autodelete_')) {
+      const sessionId = customId.replace('welcome_cust_autodelete_', '');
+      await handleCustomizedAutoDelete(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_confirm_')) {
+      const sessionId = customId.replace('welcome_cust_confirm_', '');
+      await handlePanelConfirmation(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_back_')) {
+      const sessionId = customId.replace('welcome_cust_back_', '');
+      await showCustomizedHub(interaction, sessionId);
     } else if (customId.startsWith('welcome_embed_skip_')) {
       const sessionId = customId.replace('welcome_embed_skip_', '');
       await handleEmbedSkip(interaction, sessionId);
@@ -89,7 +117,16 @@ export async function handleWelcomeModal(interaction: ModalSubmitInteraction): P
   const customId = interaction.customId;
 
   try {
-    if (customId.startsWith('welcome_message_modal_')) {
+    if (customId.startsWith('welcome_cust_message_modal_')) {
+      const sessionId = customId.replace('welcome_cust_message_modal_', '');
+      await handleCustomizedMessageSubmit(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_channel_modal_')) {
+      const sessionId = customId.replace('welcome_cust_channel_modal_', '');
+      await handleCustomizedChannelSubmit(interaction, sessionId);
+    } else if (customId.startsWith('welcome_cust_autodelete_modal_')) {
+      const sessionId = customId.replace('welcome_cust_autodelete_modal_', '');
+      await handleCustomizedAutoDeleteSubmit(interaction, sessionId);
+    } else if (customId.startsWith('welcome_message_modal_')) {
       const sessionId = customId.replace('welcome_message_modal_', '');
       await handleMessageModalSubmit(interaction, sessionId);
     } else if (customId.startsWith('welcome_autodelete_modal_')) {
@@ -469,7 +506,10 @@ export async function handleWelcomeSelectMenu(interaction: StringSelectMenuInter
   const customId = interaction.customId;
   const value = interaction.values[0];
 
-  if (customId.startsWith('welcome_embed_select_')) {
+  if (customId.startsWith('welcome_cust_embed_select_')) {
+    const sessionId = customId.replace('welcome_cust_embed_select_', '');
+    await handleCustomizedEmbedSelect(interaction, sessionId);
+  } else if (customId.startsWith('welcome_embed_select_')) {
     const sessionId = customId.replace('welcome_embed_select_', '');
     const embedId = value === 'none' ? null : value;
 

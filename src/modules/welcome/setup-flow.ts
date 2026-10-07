@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   ModalSubmitInteraction,
   ButtonInteraction,
+  StringSelectMenuInteraction,
   TextInputBuilder,
   ModalBuilder,
   ActionRowBuilder,
@@ -10,6 +11,14 @@ import {
   ButtonBuilder,
   ButtonStyle,
   TextChannel,
+  ContainerBuilder,
+  SectionBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  MessageFlags,
 } from 'discord.js';
 import { getOne, getMany, query } from '../../services/neon.service.js';
 import { getAvailableVariables, replaceVariables, validateMessage } from '../../utils/variables.js';
@@ -606,24 +615,378 @@ export async function handlePanelCancellation(interaction: ButtonInteraction, se
 }
 
 /**
- * Handle customized option (under development)
+ * Handle customized option - show configuration hub
  */
-export async function handleCustomizedSelection(interaction: ButtonInteraction): Promise<void> {
-  const developmentEmbed = new EmbedBuilder()
+export async function handleCustomizedSelection(interaction: ButtonInteraction, sessionId: string): Promise<void> {
+  await showCustomizedHub(interaction, sessionId);
+}
+
+/**
+ * Show the customized configuration hub where users can set up each field in any order
+ */
+export async function showCustomizedHub(
+  interaction: ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction,
+  sessionId: string
+): Promise<void> {
+  const session = await getOne(
+    `SELECT * FROM setup_sessions WHERE id = $1`,
+    [sessionId]
+  );
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const messageStatus = session.message
+    ? '✅ Set'
+    : '❌ Not set *(required)*';
+
+  let embedStatus = '⬜ None';
+  if (session.embed_id) {
+    const embedData = await getOne(`SELECT name FROM embeds WHERE id = $1`, [session.embed_id]);
+    if (embedData) {
+      embedStatus = `✅ ${embedData.name}`;
+    }
+  }
+
+  const channelStatus = session.welcome_channel
+    ? `✅ <#${session.welcome_channel}>`
+    : '❌ Not set *(required)*';
+
+  let autoDeleteStatus = '⬜ Disabled';
+  if (session.auto_delete_ms) {
+    const seconds = Math.round(session.auto_delete_ms / 1000);
+    autoDeleteStatus = seconds >= 60 ? `✅ ${Math.round(seconds / 60)}m` : `✅ ${seconds}s`;
+  }
+
+  const hubEmbed = new EmbedBuilder()
     .setTitle('Customized Welcome Panel')
-    .setDescription('This feature is currently under development.')
-    .setColor(0xff9800);
+    .setDescription(
+      `Configure your welcome panel below. Click any button to set or change a value.\n\n` +
+      `**Welcome Message:** ${messageStatus}\n` +
+      `**Embed:** ${embedStatus}\n` +
+      `**Channel:** ${channelStatus}\n` +
+      `**Auto-Delete:** ${autoDeleteStatus}`
+    )
+    .setColor(0x5865f2);
+
+  if (session.message) {
+    hubEmbed.addFields({ name: 'Message Preview', value: session.message.slice(0, 1024) });
+  }
+
+  const editMessageBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cust_message_${sessionId}`)
+    .setLabel('Edit Welcome Message')
+    .setStyle(session.message ? ButtonStyle.Secondary : ButtonStyle.Primary);
+
+  const connectEmbedBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cust_embed_${sessionId}`)
+    .setLabel(session.embed_id ? 'Change Embed' : 'Connect Embed')
+    .setStyle(ButtonStyle.Secondary);
+
+  const setChannelBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cust_channel_${sessionId}`)
+    .setLabel('Set Channel')
+    .setStyle(session.welcome_channel ? ButtonStyle.Secondary : ButtonStyle.Primary);
+
+  const setAutoDeleteBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cust_autodelete_${sessionId}`)
+    .setLabel('Set Auto-Delete')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(editMessageBtn, connectEmbedBtn);
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(setChannelBtn, setAutoDeleteBtn);
+
+  const canCreate = !!(session.message && session.welcome_channel);
+
+  const createBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cust_confirm_${sessionId}`)
+    .setLabel('Create Panel')
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(!canCreate);
+
+  const cancelBtn = new ButtonBuilder()
+    .setCustomId(`welcome_cancel_${sessionId}`)
+    .setLabel('Cancel')
+    .setStyle(ButtonStyle.Danger);
+
+  const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(createBtn, cancelBtn);
+
+  const payload = {
+    embeds: [hubEmbed],
+    components: [row1, row2, row3],
+  };
+
+  if (interaction instanceof ModalSubmitInteraction) {
+    await interaction.reply({ ...payload, ephemeral: true });
+  } else {
+    await interaction.update(payload);
+  }
+}
+
+/**
+ * Handle "Edit Welcome Message" button from customized hub
+ */
+export async function handleCustomizedMessage(interaction: ButtonInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`welcome_cust_message_modal_${sessionId}`)
+    .setTitle('Welcome Message');
+
+  const messageInput = new TextInputBuilder()
+    .setCustomId('welcome_message')
+    .setLabel('Welcome Message')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('Use {{server_name}}, {{user}}, {{user_mention}}, {{mem_count}}')
+    .setRequired(true);
+
+  if (session.message) {
+    messageInput.setValue(session.message);
+  }
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(messageInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle message modal submission from customized hub
+ */
+export async function handleCustomizedMessageSubmit(interaction: ModalSubmitInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const message = interaction.fields.getTextInputValue('welcome_message');
+
+  const securityCheck = validateWelcomeMessageSecurity(message);
+  if (!securityCheck.valid && securityCheck.errors) {
+    await interaction.reply({
+      content: `❌ Message contains forbidden content:\n${securityCheck.errors.map(e => `• ${e}`).join('\n')}`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const validation = validateMessage(message);
+  if (!validation.valid && validation.invalidVars) {
+    await interaction.reply({
+      content: `❌ Invalid variables: \`${validation.invalidVars.join(', ')}\`\n\nValid variables: \`{{server_name}}\`, \`{{user}}\`, \`{{user_mention}}\`, \`{{mem_count}}\``,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await query(`UPDATE setup_sessions SET message = $1 WHERE id = $2`, [message, sessionId]);
+
+  await showCustomizedHub(interaction, sessionId);
+}
+
+/**
+ * Handle "Connect Embed" button from customized hub
+ */
+export async function handleCustomizedEmbed(interaction: ButtonInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const embeds = await getMany(
+    `SELECT * FROM embeds WHERE guild_id = $1 ORDER BY name ASC`,
+    [interaction.guildId!]
+  );
+
+  if (embeds.length === 0) {
+    const noEmbedEmbed = new EmbedBuilder()
+      .setTitle('No Embeds Available')
+      .setDescription('You do not have any custom embeds configured.\nCreate one first with `/embed create`.')
+      .setColor(0xff9800);
+
+    const backBtn = new ButtonBuilder()
+      .setCustomId(`welcome_cust_back_${sessionId}`)
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn);
+
+    await interaction.update({
+      embeds: [noEmbedEmbed],
+      components: [row],
+    });
+    return;
+  }
+
+  const selectEmbed = new EmbedBuilder()
+    .setTitle('Connect Embed')
+    .setDescription('Select a custom embed to attach to this welcome panel.')
+    .setColor(0x5865f2);
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`welcome_cust_embed_select_${sessionId}`)
+    .setPlaceholder('Choose a custom embed...');
+
+  select.addOptions(
+    new StringSelectMenuOptionBuilder()
+      .setLabel('None / No Embed')
+      .setDescription('Do not attach an embed.')
+      .setValue('none')
+  );
+
+  for (const embed of embeds) {
+    const desc = embed.description ? embed.description.slice(0, 80) : 'No description';
+    select.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(embed.name)
+        .setDescription(desc)
+        .setValue(embed.id)
+    );
+  }
+
+  const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 
   const backBtn = new ButtonBuilder()
-    .setCustomId('welcome_create')
+    .setCustomId(`welcome_cust_back_${sessionId}`)
     .setLabel('Back')
     .setStyle(ButtonStyle.Secondary);
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn);
+  const btnRow = new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn);
 
-  await interaction.reply({
-    embeds: [developmentEmbed],
-    components: [row],
-    ephemeral: true,
+  await interaction.update({
+    embeds: [selectEmbed],
+    components: [selectRow, btnRow],
   });
+}
+
+/**
+ * Handle embed selection from customized hub
+ */
+export async function handleCustomizedEmbedSelect(interaction: StringSelectMenuInteraction, sessionId: string): Promise<void> {
+  const embedId = interaction.values[0] === 'none' ? null : interaction.values[0];
+  await query(`UPDATE setup_sessions SET embed_id = $1 WHERE id = $2`, [embedId, sessionId]);
+  await showCustomizedHub(interaction, sessionId);
+}
+
+/**
+ * Handle "Set Channel" button from customized hub
+ */
+export async function handleCustomizedChannel(interaction: ButtonInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`welcome_cust_channel_modal_${sessionId}`)
+    .setTitle('Welcome Channel');
+
+  const channelInput = new TextInputBuilder()
+    .setCustomId('channel_id')
+    .setLabel('Channel ID')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g., 123456789...')
+    .setRequired(true);
+
+  if (session.welcome_channel) {
+    channelInput.setValue(session.welcome_channel);
+  }
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(channelInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle channel modal submission from customized hub
+ */
+export async function handleCustomizedChannelSubmit(interaction: ModalSubmitInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const channelId = interaction.fields.getTextInputValue('channel_id');
+
+  try {
+    const channel = await interaction.guild!.channels.fetch(channelId);
+    if (!channel?.isTextBased()) {
+      await interaction.reply({ content: '❌ Channel must be a text channel.', ephemeral: true });
+      return;
+    }
+  } catch {
+    await interaction.reply({ content: '❌ Invalid channel ID. Channel not found.', ephemeral: true });
+    return;
+  }
+
+  await query(`UPDATE setup_sessions SET welcome_channel = $1 WHERE id = $2`, [channelId, sessionId]);
+
+  await showCustomizedHub(interaction, sessionId);
+}
+
+/**
+ * Handle "Set Auto-Delete" button from customized hub
+ */
+export async function handleCustomizedAutoDelete(interaction: ButtonInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`welcome_cust_autodelete_modal_${sessionId}`)
+    .setTitle('Auto-Delete Setup');
+
+  const autoDeleteInput = new TextInputBuilder()
+    .setCustomId('autodelete_value')
+    .setLabel('Auto-delete time (e.g., 10s, 1m, or "skip")')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('skip, 10s, 15s, 1m, etc.')
+    .setRequired(true);
+
+  if (session.auto_delete_ms) {
+    autoDeleteInput.setValue(`${Math.round(session.auto_delete_ms / 1000)}s`);
+  }
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(autoDeleteInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle auto-delete modal submission from customized hub
+ */
+export async function handleCustomizedAutoDeleteSubmit(interaction: ModalSubmitInteraction, sessionId: string): Promise<void> {
+  const session = await getOne(`SELECT * FROM setup_sessions WHERE id = $1`, [sessionId]);
+  if (!session) {
+    await interaction.reply({ content: '❌ Session expired. Please try again.', ephemeral: true });
+    return;
+  }
+
+  const autoDeleteStr = interaction.fields.getTextInputValue('autodelete_value');
+  const autoDeleteMs = parseAutoDeleteValue(autoDeleteStr);
+
+  if (autoDeleteMs === 'invalid') {
+    await interaction.reply({
+      content: '❌ Invalid format. Use `skip`, `10s`, `15s`, `1m`, etc.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await query(`UPDATE setup_sessions SET auto_delete_ms = $1 WHERE id = $2`, [autoDeleteMs, sessionId]);
+
+  await showCustomizedHub(interaction, sessionId);
 }
