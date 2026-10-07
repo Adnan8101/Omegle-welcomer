@@ -37,17 +37,17 @@ export function isValidUrl(urlStr: string): boolean {
   }
 }
 
-export function renderEmbed(
+export async function renderEmbed(
   embedData: EmbedData,
   context: { guild: Guild; member: GuildMember }
-): EmbedBuilder {
+): Promise<EmbedBuilder> {
   const embed = new EmbedBuilder();
 
   if (embedData.title) {
-    embed.setTitle(replaceVariables(embedData.title, context));
+    embed.setTitle(await replaceVariables(embedData.title, context));
   }
   if (embedData.description) {
-    embed.setDescription(replaceVariables(embedData.description, context));
+    embed.setDescription(await replaceVariables(embedData.description, context));
   }
   if (embedData.color && isValidHexColor(embedData.color)) {
     const colorVal = resolveColor(embedData.color);
@@ -56,21 +56,21 @@ export function renderEmbed(
     }
   }
   if (embedData.thumbnail) {
-    const resolvedUrl = replaceVariables(embedData.thumbnail, context);
+    const resolvedUrl = await replaceVariables(embedData.thumbnail, context);
     if (isValidUrl(resolvedUrl)) {
       embed.setThumbnail(resolvedUrl);
     }
   }
   if (embedData.image) {
-    const resolvedUrl = replaceVariables(embedData.image, context);
+    const resolvedUrl = await replaceVariables(embedData.image, context);
     if (isValidUrl(resolvedUrl)) {
       embed.setImage(resolvedUrl);
     }
   }
   if (embedData.author_name) {
-    const name = replaceVariables(embedData.author_name, context);
-    const iconURL = embedData.author_icon ? replaceVariables(embedData.author_icon, context) : undefined;
-    const url = embedData.author_url ? replaceVariables(embedData.author_url, context) : undefined;
+    const name = await replaceVariables(embedData.author_name, context);
+    const iconURL = embedData.author_icon ? await replaceVariables(embedData.author_icon, context) : undefined;
+    const url = embedData.author_url ? await replaceVariables(embedData.author_url, context) : undefined;
     embed.setAuthor({
       name,
       iconURL: iconURL && isValidUrl(iconURL) ? iconURL : undefined,
@@ -78,8 +78,8 @@ export function renderEmbed(
     });
   }
   if (embedData.footer_text) {
-    const text = replaceVariables(embedData.footer_text, context);
-    const iconURL = embedData.footer_icon ? replaceVariables(embedData.footer_icon, context) : undefined;
+    const text = await replaceVariables(embedData.footer_text, context);
+    const iconURL = embedData.footer_icon ? await replaceVariables(embedData.footer_icon, context) : undefined;
     embed.setFooter({
       text,
       iconURL: iconURL && isValidUrl(iconURL) ? iconURL : undefined,
@@ -89,7 +89,6 @@ export function renderEmbed(
     embed.setTimestamp();
   }
 
-  // Fallback if embed is empty (Discord throws error for empty embeds)
   if (
     !embedData.title &&
     !embedData.description &&

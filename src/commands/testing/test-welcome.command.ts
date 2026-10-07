@@ -77,7 +77,7 @@ export async function handleTestWelcomeCommand(interaction: ChatInputCommandInte
       }
 
       // Replace variables and send plain text; respect auto-delete if configured
-      const message = ensureUserMention(replaceVariables(panel.message, { guild, member }), member.id);
+      const message = ensureUserMention(await replaceVariables(panel.message, { guild, member }), member.id);
 
       // Fetch and render attached embed if configured
       let renderedEmbed: any = undefined;
@@ -85,7 +85,7 @@ export async function handleTestWelcomeCommand(interaction: ChatInputCommandInte
         const embedData = await getOne(`SELECT * FROM embeds WHERE id = $1`, [panel.embed_id]);
         if (embedData) {
           const { renderEmbed } = await import('../../utils/embedEngine.js');
-          renderedEmbed = renderEmbed(embedData, { guild, member });
+          renderedEmbed = await renderEmbed(embedData, { guild, member });
         }
       }
 

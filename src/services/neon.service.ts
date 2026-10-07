@@ -106,6 +106,28 @@ export async function initializeDatabase(): Promise<void> {
       )
     `);
 
+    // Create ruser_roles table (random user from roles)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ruser_roles (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        role_id VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(guild_id, role_id)
+      )
+    `);
+
+    // Create rvc_categories table (random VC from categories)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rvc_categories (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        category_id VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(guild_id, category_id)
+      )
+    `);
+
     // Create embed_setup_sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS embed_setup_sessions (

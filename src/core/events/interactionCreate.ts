@@ -7,6 +7,7 @@ import { handleEmbedCommand } from '../../commands/embed/embed.command.js';
 import { handleVariablesCommand } from '../../commands/variables/variables.command.js';
 import { handleWelcomeButton, handleWelcomeModal } from '../handlers/welcome-interactions.js';
 import { handleEmbedButton, handleEmbedModal } from '../handlers/embed-interactions.js';
+import { handleSmartCommand, handleSmartButton } from '../../commands/smart/smart.command.js';
 import { logger } from '../../utils/logger.js';
 
 export const name = Events.InteractionCreate;
@@ -18,6 +19,7 @@ const COMMAND_MAP: Record<string, (interaction: ChatInputCommandInteraction) => 
   welcome: handleWelcomeCommand,
   embed: handleEmbedCommand,
   variables: handleVariablesCommand,
+  smart: handleSmartCommand,
 };
 
 export async function execute(interaction: Interaction): Promise<void> {
@@ -40,6 +42,8 @@ export async function execute(interaction: Interaction): Promise<void> {
         await handleWelcomeButton(interaction);
       } else if (interaction.customId.startsWith('embed_')) {
         await handleEmbedButton(interaction);
+      } else if (interaction.customId.startsWith('smart_')) {
+        await handleSmartButton(interaction);
       }
     } else if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('welcome_')) {

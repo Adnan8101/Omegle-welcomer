@@ -304,7 +304,7 @@ async function handleEditMessageSubmit(interaction: ModalSubmitInteraction, pane
   );
 
   // Show preview
-  const preview = replaceVariables(newMessage, { guild: interaction.guild!, member: interaction.member as any });
+  const preview = await replaceVariables(newMessage, { guild: interaction.guild!, member: interaction.member as any });
 
   const previewEmbed = new EmbedBuilder()
     .setTitle('Message Preview')

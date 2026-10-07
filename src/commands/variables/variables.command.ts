@@ -1,4 +1,12 @@
-import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import {
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  MessageFlags,
+} from 'discord.js';
 import { getAvailableVariables } from '../../utils/variables.js';
 
 export const definition = new SlashCommandBuilder()
@@ -6,20 +14,43 @@ export const definition = new SlashCommandBuilder()
   .setDescription('Show all available placeholders / variables');
 
 export async function handleVariablesCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
-
   const vars = getAvailableVariables();
-  const embed = new EmbedBuilder()
-    .setTitle('Available Placeholders')
-    .setDescription('You can use the following placeholders in your welcome messages and custom embeds. They will be replaced dynamically with user/server/joining information.')
-    .setColor(0x5865F2);
 
-  const formattedVars = Object.entries(vars)
-    .filter(([name]) => !['server_name', 'user_mention', 'mem_count'].includes(name))
-    .map(([name, desc]) => `• **{${name}}** - ${desc}`)
+  const standardVars = Object.entries(vars)
+    .filter(([name]) => !['server_name', 'user_mention', 'mem_count', 'username'].includes(name))
+    .map(([name, desc]) => `\`{${name}}\` — ${desc}`)
     .join('\n');
 
-  embed.addFields({ name: 'Variables', value: formattedVars });
+  const container = new ContainerBuilder()
+    .setAccentColor(0x5865F2)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('# 📝 Available Variables')
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        'Use these placeholders in welcome messages and custom embeds. They are replaced dynamically when a member joins.'
+      )
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(standardVars)
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '-# Both `{variable}` and `{{variable}}` syntax are supported.'
+      )
+    );
 
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.reply({
+    components: [container],
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+  });
 }

@@ -133,7 +133,7 @@ export async function handleMessageModalSubmit(interaction: ModalSubmitInteracti
   // Show preview
   const guild = interaction.guild!;
   const member = interaction.member! as any;
-  const preview = replaceVariables(message, { guild, member });
+  const preview = await replaceVariables(message, { guild, member });
 
   const previewEmbed = new EmbedBuilder()
     .setTitle('Message Preview')
